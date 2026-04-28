@@ -2,6 +2,7 @@
 
 This demo demonstrates how to easily deploy and customize a **Retrieval Augmented Generation (RAG)** model using **NVIDIA NIMs** or a **local OpenAI-compatible server** (for example **[vLLM](https://docs.vllm.ai)**), enabling high-performance inference for enterprise use cases.
 
+![Main page](static/img/main-page.png)
 
 RAG, or Retrieval Augmented Generation, is a framework that combines the strengths of large language models (LLMs) and external knowledge retrieval systems. It allows the model to fetch relevant information from external sources, such as databases or knowledge bases, during the generation process, improving accuracy and relevance while reducing hallucinations.
 
@@ -29,6 +30,8 @@ This demo offers flexibility and customization in the following areas:
 **Application & UI Customization**: 
 
 This demo is built using LangChain for the RAG process and Streamlit for the frontend, providing a seamless, interactive experience. You can personalize the theme, font, and branding to suit your preferences.
+
+![Chatbot example](static/img/chatbot_example.png)
 
 
 ## Running the Demo
@@ -90,9 +93,7 @@ Make sure port ```8501``` is open on your localhost to access the demo in your b
 
 Explore the demo and experiment with different deployment, retrieval, and model options to see how RAG can improve inference for your use cases.
 
-![Nim Inference(static/img/nim_inference.png)](static/img/nim_inference.png)
-
-![DGX Inference(static/img/dgx_inference.png)](static/img/dgx_inference.png)
+![RAG example](static/img/rag-example.png)
 
 ## Docker
 
@@ -143,20 +144,6 @@ Inside the container, `localhost:8000` is the container itself, not the host. Po
 
 If you started vLLM with `--served-model-name my-nemotron`, use **`my-nemotron`** as the id, not necessarily the Hugging Face repo path.
 
-### GitHub Container Registry (GHCR)
-
-1. Push this repository to GitHub (workflow path: `.github/workflows/docker-publish.yml`).
-2. On push to `main`, on tags matching `v*`, or via **Actions → Build and push Docker image to GHCR → Run workflow**, the workflow builds and pushes to `ghcr.io/<owner>/<repo>`.
-3. Make the package public (optional): GitHub → **Packages** → your image → **Package settings** → **Change visibility**.
-4. Pull:
-
-       docker pull ghcr.io/OWNER/REPO:main
-
-Use a **Personal Access Token** with `read:packages` (and `write:packages` to push from your laptop) if you push manually:
-
-    echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
-    docker tag arrow-rag-demo:local ghcr.io/OWNER/REPO:latest
-    docker push ghcr.io/OWNER/REPO:latest
 
 ## Additional Resources
 

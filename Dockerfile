@@ -12,7 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-# 1) Install everything (NumPy 2.x gets pulled by torch/scipy/etc.).
+# Install PyTorch first from the CUDA 12.1 index so CUDA works with older host drivers 
+RUN pip install --no-cache-dir \
+    torch torchvision torchaudio \
+    --index-url https://download.pytorch.org/whl/cu121
+# 1) Install everything else (NumPy 2.x gets pulled by torch/scipy/etc.).
 # 2) Swap numpy to 1.x -- faiss-gpu's C extension requires the NumPy 1.x ABI.
 #    --no-deps avoids re-resolving scipy/torch and the massive backtracking that causes.
 RUN pip install --no-cache-dir -r requirements.txt \
