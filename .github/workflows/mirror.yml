@@ -1,0 +1,20 @@
+name: Mirror to Arrow GitHub organization
+
+on: [push, delete]
+
+jobs:
+  git-mirror:
+    if: github.repository == 'Razgaleh/Arrow-RAG-Demo'
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Mirror to arrow-data-ai/arrow-rag-demo
+        uses: pixta-dev/repository-mirroring-action@v1
+        with:
+          target_repo_url: https://x-access-token:${{ secrets.MIRROR_TOKEN }}@github.com/arrow-data-ai/arrow-rag-demo.git
