@@ -12,26 +12,30 @@ RAG, or Retrieval Augmented Generation, is a framework that combines the strengt
 
 This demo offers flexibility and customization in the following areas:
 
-**Deployment Options**: Choose between a **local vLLM** (or any OpenAI-compatible HTTP API) and **NVIDIA NIMs**.
+**RAG vs Chatbot**:
 
-![Deployment Selection(static/img/deployment-selection.png)](static/img/deployment-selection.png)
+A standard chatbot replies using only its training—it has no guaranteed access to your documents and may invent facts. With **RAG**, the assistant retrieves relevant excerpts from your knowledge base (for example PDFs or URLs), then generates an answer anchored in those snippets, improving accuracy and traceability.
+
+![Chatbot example](static/img/chatbot_example.png)
+
+![RAG example](static/img/rag_example.png)
+
+
+**Deployment Options**: Choose between a **local vLLM** (or any OpenAI-compatible HTTP API) and **NVIDIA NIMs**.
 
 **Retrieval Sources**: You can select from different retrieval sources, including uploading a PDF, using previously chosen PDFs about Arrow Electronics in the "docs" folder, or specifying URLs in rag_engine.py file. 
 
-![Database Selection(static/img/database-selection.png)](static/img/database-selection.png)
 
 **LLM Selection**: The demo currently features LLaMA 3.1, Phi 3.5, and Gemma 2. However, you can swap out these models for any compatible LLM.
 
 **LLM Parameters**: Use an interactive slider to adjust model parameter temperature. The code can also be customized to modify additional properties such as top-k or top-p values, allowing fine-tuning of the model's output.
-
-![LLM Model Selection(static/img/llm-model-selection.png)](static/img/llm-model-selection.png)
 
 
 **Application & UI Customization**: 
 
 This demo is built using LangChain for the RAG process and Streamlit for the frontend, providing a seamless, interactive experience. You can personalize the theme, font, and branding to suit your preferences.
 
-![Chatbot example](static/img/chatbot_example.png)
+
 
 
 ## Running the Demo
