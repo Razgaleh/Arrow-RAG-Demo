@@ -2,7 +2,7 @@
 
 This demo demonstrates how to easily deploy and customize a **Retrieval Augmented Generation (RAG)** model using **NVIDIA NIMs** or a **local OpenAI-compatible server** (for example **[vLLM](https://docs.vllm.ai)**), enabling high-performance inference for enterprise use cases.
 
-![Main page](static/img/main-page.png)
+![Main page](static/img/main_page.png)
 
 RAG, or Retrieval Augmented Generation, is a framework that combines the strengths of large language models (LLMs) and external knowledge retrieval systems. It allows the model to fetch relevant information from external sources, such as databases or knowledge bases, during the generation process, improving accuracy and relevance while reducing hallucinations.
 
@@ -10,33 +10,37 @@ RAG, or Retrieval Augmented Generation, is a framework that combines the strengt
 
 ## Features
 
-This demo offers flexibility and customization in the following areas:
+The Streamlit sidebar groups the following options:
 
-**RAG vs Chatbot**:
+**RAG vs Chatbot (Mode)**
 
-A standard chatbot replies using only its training—it has no guaranteed access to your documents and may invent facts. With **RAG**, the assistant retrieves relevant excerpts from your knowledge base (for example PDFs or URLs), then generates an answer anchored in those snippets, improving accuracy and traceability.
-
-![Chatbot example](static/img/chatbot_example.png)
+Use **RAG** to answer from retrieved text: PDFs or a fixed set of public web pages, embedded with [FAISS](https://faiss.ai) and answered through a LangChain **RetrievalQA** chain. Use **Chatbot** for multi-turn conversation with the LLM only—no document loading or retrieval. Changing mode clears the chat history.
 
 ![RAG example](static/img/rag_example.png)
 
+![Chatbot example](static/img/chatbot_example.png)
 
-**Deployment Options**: Choose between a **local vLLM** (or any OpenAI-compatible HTTP API) and **NVIDIA NIMs**.
+**Deployment**
 
-**Retrieval Sources**: You can select from different retrieval sources, including uploading a PDF, using previously chosen PDFs about Arrow Electronics in the "docs" folder, or specifying URLs in rag_engine.py file. 
+With **Local vLLM**, the app calls your OpenAI-compatible HTTP API (defaults to `OPENAI_BASE_URL`, usually vLLM on port 8000). With **NVIDIA NIM**, it uses NVIDIA-hosted models and requires `NVIDIA_API_KEY`.
 
+**Retrieval sources (RAG mode only)**
 
-**LLM Selection**: The demo currently features LLaMA 3.1, Phi 3.5, and Gemma 2. However, you can swap out these models for any compatible LLM.
+- **Local PDFs (.pdf)** — Indexes every `*.pdf` in the **`docs/`** folder next to the app (browse and download from the sidebar).
+- **Upload PDFs (.pdf)** — Indexes a single uploaded PDF for the session.
+- **Public Websites (URL)** — Indexes content from a predefined list (Arrow-focused public sources). The URLs and sidebar labels live in **`RAG_WEBSITE_SOURCES`** in `rag_engine.py`; edit that list to add or change sources.
 
-**LLM Parameters**: Use an interactive slider to adjust model parameter temperature. The code can also be customized to modify additional properties such as top-k or top-p values, allowing fine-tuning of the model's output.
+**LLM selection**
 
+Choose one of four labeled models: **NVIDIA Nemotron 3 Nano**, **Meta Llama 3.1**, **Google Gemma 2**, or **Microsoft Phi 3.5**. For local vLLM, the friendly name maps to Hugging Face–style model IDs (configurable via environment variables such as `VLLM_MODEL` or per-model overrides). For NIM, the app uses the corresponding NVIDIA model identifiers.
 
-**Application & UI Customization**: 
+**Generation parameters**
 
-This demo is built using LangChain for the RAG process and Streamlit for the frontend, providing a seamless, interactive experience. You can personalize the theme, font, and branding to suit your preferences.
+The sidebar exposes sliders for **temperature** (0.0–2.0), **top-p** (0.0–1.0), and **top-k** (1–128). The same values apply in both RAG and Chatbot modes.
 
+**Application and UI**
 
-
+The app is a **Streamlit** chat interface with custom CSS, a background image, light/dark **Arrow** logos via `streamlit-theme`, a summary of the current configuration in the sidebar, **Clear chat history**, and an expandable RAG overview with a diagram. Core RAG logic uses **LangChain** (loaders, text splitting, FAISS, retrieval QA) and **Hugging Face** embeddings for the vector index.
 
 ## Running the Demo
 
