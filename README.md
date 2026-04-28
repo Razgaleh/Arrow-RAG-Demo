@@ -101,8 +101,6 @@ Make sure port ```8501``` is open on your localhost to access the demo in your b
 
 Explore the demo and experiment with different deployment, retrieval, and model options to see how RAG can improve inference for your use cases.
 
-![RAG example](static/img/rag-example.png)
-
 ## Docker
 
 The image installs **`faiss-gpu`** (same as `requirements.txt`). PyPI only ships `faiss-gpu` wheels for **Python 3.10**, so the Dockerfile uses `python:3.10-slim-bookworm`. Use a **GPU-capable runner** (`docker compose` or `docker run --gpus all`) plus the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) on the host so FAISS can use the GPU.
