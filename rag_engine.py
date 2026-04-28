@@ -1,7 +1,8 @@
 # Standard library imports
-import os
+import os 
 from pathlib import Path
-
+ 
+ 
 # LLM and embedding model imports
 from langchain_openai import ChatOpenAI
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
@@ -281,9 +282,10 @@ def local_get_answer_upload_pdf(
     text_chunks = text_splitter.split_documents(documents)
     
     
-    # vector embeddings from text chunks
-    knowledge_base = FAISS.from_documents(text_chunks, get_embeddings())
-
+    # vector embeddings from text chunks 
+    
+    knowledge_base = FAISS.from_documents(text_chunks, embeddings)
+    
     qa_chain = RetrievalQA.from_chain_type(
         llm,
         retriever = knowledge_base.as_retriever()
@@ -335,9 +337,10 @@ def local_get_answer_url(model, temperature, top_p, top_k, query):
     text_chunks = text_splitter.split_documents(docs_list)
     
     
-    # vector embeddings from text chunks
-    knowledge_base = FAISS.from_documents(text_chunks, get_embeddings())
-
+    # vector embeddings from text chunks 
+    
+    knowledge_base = FAISS.from_documents(text_chunks, embeddings)
+    
     qa_chain = RetrievalQA.from_chain_type(
         llm,
         retriever = knowledge_base.as_retriever()
@@ -384,9 +387,10 @@ def local_get_answer_folder_pdf(model, temperature, top_p, top_k, query):
     text_chunks = text_splitter.split_documents(docs)
     
     
-    # vector embeddings from text chunks
-    knowledge_base = FAISS.from_documents(text_chunks, get_embeddings())
-
+    # vector embeddings from text chunks 
+    
+    knowledge_base = FAISS.from_documents(text_chunks, embeddings)
+    
     qa_chain = RetrievalQA.from_chain_type(
         llm,
         retriever = knowledge_base.as_retriever()
@@ -425,8 +429,7 @@ def nim_get_answer_folder_pdf(model, temperature, top_p, top_k, query):
         separator="/n", chunk_size=1000, chunk_overlap=200
     )
     text_chunks = text_splitter.split_documents(docs)
-    knowledge_base = FAISS.from_documents(text_chunks, get_embeddings())
-
+    knowledge_base = FAISS.from_documents(text_chunks, embeddings)
     qa_chain = RetrievalQA.from_chain_type(
         llm,
         retriever=knowledge_base.as_retriever(),
@@ -466,9 +469,9 @@ def nim_get_answer_url(model, temperature, top_p, top_k, query):
     
     text_chunks = text_splitter.split_documents(docs_list)
 
-    # vector embeddings from text chunks
-    knowledge_base = FAISS.from_documents(text_chunks, get_embeddings())
-
+    # vector embeddings from text chunks 
+    knowledge_base = FAISS.from_documents(text_chunks, embeddings)
+    
     qa_chain = RetrievalQA.from_chain_type(
         llm,
         retriever=knowledge_base.as_retriever()
@@ -513,9 +516,9 @@ def nim_get_answer_upload_pdf(
     
     text_chunks = text_splitter.split_documents(documents)
 
-    # vector embeddings from text chunks
-    knowledge_base = FAISS.from_documents(text_chunks, get_embeddings())
-
+    # vector embeddings from text chunks 
+    knowledge_base = FAISS.from_documents(text_chunks, embeddings)
+    
     qa_chain = RetrievalQA.from_chain_type(
         llm,
         retriever=knowledge_base.as_retriever()

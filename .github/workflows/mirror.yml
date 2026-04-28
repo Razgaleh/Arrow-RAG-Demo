@@ -1,11 +1,19 @@
 name: Mirror to Arrow GitHub organization
 
-on: [push, delete]
+on:
+  push:
+    branches:
+      - "**"
+  delete:
+    branches:
+      - "**"
 
 jobs:
   git-mirror:
     if: github.repository == 'Razgaleh/Arrow-RAG-Demo'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
@@ -13,7 +21,15 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          fetch-tags: true
           persist-credentials: false
+      - name: Fetch all branches and tags for mirror
+        run: |
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*' --prune
+          git fetch origin '+refs/tags/*:refs/tags/*' --prune || true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Mirror to arrow-data-ai/arrow-rag-demo
         uses: pixta-dev/repository-mirroring-action@v1
         with:
