@@ -12,7 +12,7 @@ RAG, or Retrieval Augmented Generation, is a framework that combines the strengt
 
 The Streamlit sidebar groups the following options:
 
-**RAG vs Chatbot (Mode)**
+**RAG vs Chatbot**
 
 Use **RAG** to answer from retrieved text: PDFs or a fixed set of public web pages, embedded with [FAISS](https://faiss.ai) and answered through a LangChain **RetrievalQA** chain. Use **Chatbot** for multi-turn conversation with the LLM only—no document loading or retrieval. Changing mode clears the chat history.
 
