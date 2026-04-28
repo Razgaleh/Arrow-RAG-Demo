@@ -4,33 +4,156 @@ from pathlib import Path
  
  
 # LLM and embedding model imports
-from langchain_ollama.llms import OllamaLLM
-from langchain_nvidia_ai_endpoints import ChatNVIDIA  
+from langchain_openai import ChatOpenAI
+from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from langchain_huggingface import HuggingFaceEmbeddings
 
 # Document loading and processing imports
 from langchain_unstructured import UnstructuredLoader
-from langchain_community.document_loaders import WebBaseLoader, UnstructuredExcelLoader
-from langchain.text_splitter import CharacterTextSplitter
+from langchain_community.document_loaders import WebBaseLoader
+from langchain_text_splitters import CharacterTextSplitter
 
 # Vector store and QA chain imports
 from langchain_community.vectorstores import FAISS
-from langchain.chains import RetrievalQA
+from langchain_classic.chains import RetrievalQA
+from langchain_core.messages import AIMessage, HumanMessage
 
 # Get the current working directory
 working_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Verify NVIDIA API key is set
-if os.getenv('NVIDIA_API_KEY') is None:
-    raise ValueError('NVIDIA_API_KEY environment variable is not set')
-
-NVIDIA_API_KEY = os.getenv('NVIDIA_API_KEY')
-
-# Initialize default LLM configuration for Ollama
-llm = OllamaLLM(
-    model="llama3.1:latest",
-    temperature = 0
+# Single source of truth for "Public Websites (URL)" RAG mode — titles shown in the UI;
+# URLs are loaded into the vector index by local_get_answer_url / nim_get_answer_url.
+RAG_WEBSITE_SOURCES = (
+    {
+        "label": "Wikipedia — Arrow Electronics",
+        "url": "https://en.wikipedia.org/wiki/Arrow_Electronics",
+    },
+    {
+        "label": "LinkedIn — company posts",
+        "url": "https://www.linkedin.com/company/arrow-electronics/posts/?feedView=all",
+    },
+    {
+        "label": "Built In Colorado — employer profile",
+        "url": "https://www.builtincolorado.com/company/arrow-electronics-inc",
+    },
+    {
+        "label": "Bloomberg — ARW:US company profile",
+        "url": "https://www.bloomberg.com/profile/company/ARW:US",
+    },
 )
+
+
+def _rag_website_urls():
+    return [entry["url"] for entry in RAG_WEBSITE_SOURCES]
+
+
+def docs_folder_path() -> Path:
+    """Directory containing bundled PDFs for the Local PDFs RAG mode."""
+    return Path(working_dir) / "docs"
+
+
+def list_docs_folder_pdfs():
+    """Metadata for each ``*.pdf`` under ``docs/``, sorted by filename.
+
+    Returns:
+        list[dict]: Each dict has ``name`` (str), ``path`` (Path), ``size_bytes`` (int).
+    """
+    folder_path = docs_folder_path()
+    if not folder_path.is_dir():
+        return []
+    out = []
+    for p in sorted(folder_path.glob("*.pdf")):
+        try:
+            sz = p.stat().st_size
+        except OSError:
+            sz = 0
+        out.append({"name": p.name, "path": p, "size_bytes": sz})
+    return out
+
+
+def _get_nvidia_api_key():
+    key = os.getenv("NVIDIA_API_KEY")
+    if not key:
+        raise ValueError(
+            "NVIDIA_API_KEY is required when using NVIDIA NIM deployment."
+        )
+    return key
+
+
+def _openai_compatible_base_url():
+    """Base URL for OpenAI-compatible servers (vLLM, etc.); must end with /v1."""
+    base = os.getenv("OPENAI_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+    if not base.endswith("/v1"):
+        base = f"{base}/v1"
+    return base
+
+
+def _local_vllm_llm(
+    model: str, temperature: float, top_p: float, top_k: int
+) -> ChatOpenAI:
+    """Chat LLM against a local OpenAI-compatible endpoint (e.g. vLLM serve)."""
+    return ChatOpenAI(
+        model=model,
+        temperature=temperature,
+        top_p=top_p,
+        base_url=_openai_compatible_base_url(),
+        api_key=os.getenv("OPENAI_API_KEY", "EMPTY"),
+        max_tokens=1024,
+        extra_body={"top_k": top_k},
+    )
+
+
+def _nim_chat_llm(
+    model: str, temperature: float, top_p: float, top_k: int
+) -> ChatNVIDIA:
+    api_key = _get_nvidia_api_key()
+    return ChatNVIDIA(
+        model=model,
+        api_key=api_key,
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=1024,
+        model_kwargs={"top_k": top_k},
+    )
+
+
+def chat_completion(
+    deployment: str,
+    model_name: str,
+    temperature: float,
+    top_p: float,
+    top_k: int,
+    messages: list,
+) -> str:
+    """Multi-turn chat with no retrieval (plain LLM).
+
+    messages: list of {"role": "user"|"assistant", "content": str}
+    """
+    mid = get_model(model_name, deployment)
+    if not mid:
+        raise ValueError("Could not resolve model id for chat.")
+
+    lc_messages = []
+    for m in messages:
+        role = m.get("role")
+        content = m.get("content", "")
+        if role == "user":
+            lc_messages.append(HumanMessage(content=content))
+        elif role == "assistant":
+            lc_messages.append(AIMessage(content=content))
+
+    if deployment in ("Local vLLM", "Local vLLM (OpenAI API)"):
+        llm = _local_vllm_llm(mid, temperature, top_p, top_k)
+    elif deployment == "NVIDIA NIM":
+        llm = _nim_chat_llm(mid, temperature, top_p, top_k)
+    else:
+        raise ValueError(f"Unsupported deployment for chat: {deployment}")
+
+    response = llm.invoke(lc_messages)
+    if hasattr(response, "content"):
+        return response.content
+    return str(response)
+
 
 # Initialize default embedding model
 embeddings = HuggingFaceEmbeddings()
@@ -41,33 +164,53 @@ def get_model(model, deployment):
     
     Args:
         model (str): The selected model name
-        deployment (str): The deployment type (DGX Local or NVIDIA NIM)
+        deployment (str): The deployment type (Local vLLM or NVIDIA NIM)
     
     Returns:
         str: The corresponding model identifier for the selected deployment
     """
+    if deployment in ("Local vLLM", "Local vLLM (OpenAI API)"):
+        # If set, must match the model id passed to `vllm serve --model ...`.
+        forced = os.getenv("VLLM_MODEL")
+        if forced:
+            return forced
+        if model == "Meta Llama 3.1":
+            return os.getenv(
+                "VLLM_MODEL_LLAMA", "meta-llama/Llama-3.1-8B-Instruct"
+            )
+        if model == "Google Gemma 2":
+            return os.getenv("VLLM_MODEL_GEMMA", "google/gemma-2-9b-it")
+        if model == "Microsoft Phi 3.5":
+            return os.getenv(
+                "VLLM_MODEL_PHI", "microsoft/Phi-3.5-mini-instruct"
+            )
+        if model == "NVIDIA Nemotron 3 Nano":
+            return os.getenv(
+                "VLLM_MODEL_NEMOTRON",
+                "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8",
+            )
+    if deployment == "NVIDIA NIM":
+        if model == "Meta Llama 3.1":
+            return "meta/llama-3.1-8b-instruct"
+        if model == "Google Gemma 2":
+            return "google/gemma-2-9b-it"
+        if model == "Microsoft Phi 3.5":
+            return "microsoft/phi-3.5-moe-instruct"
+        if model == "NVIDIA Nemotron 3 Nano":
+            return os.getenv(
+                "NIM_MODEL_NEMOTRON", "nvidia/nemotron-3-nano-30b-a3b"
+            )
     
-    if deployment == 'DGX Local Deployment': 
-        if model == 'Meta Llama 3.1' :
-            return 'llama3.1:latest'
-        elif model == 'Google Gemma 2':
-            return 'gemma2:latest'
-        elif model =='Microsoft Phi 3.5':
-            return 'phi3.5:latest'
-    if deployment == 'NVIDIA NIM':
-        if model == 'Meta Llama 3.1' :
-            return 'meta/llama-3.1-8b-instruct'
-        elif model == 'Google Gemma 2':
-            return 'google/gemma-2-9b-it'
-        elif model =='Microsoft Phi 3.5':
-            return 'microsoft/phi-3.5-moe-instruct'
-    
-def local_get_answer_upload_pdf(model, temperature, file_name, query):
-    """Process a single uploaded PDF file using local deployment.
+def local_get_answer_upload_pdf(
+    model, temperature, top_p, top_k, file_name, query
+):
+    """Process a single uploaded PDF file using local vLLM (OpenAI API).
     
     Args:
         model (str): The model identifier to use
         temperature (float): The model's temperature setting
+        top_p (float): Nucleus sampling threshold
+        top_k (int): Top-k token cutoff for the server
         file_name (str): Name of the uploaded PDF file
         query (str): The user's question
     
@@ -75,14 +218,11 @@ def local_get_answer_upload_pdf(model, temperature, file_name, query):
         str: The model's response to the query
     """
 
-    llm = OllamaLLM(
-        model=model,
-        temperature = temperature
-        )
+    llm = _local_vllm_llm(model, temperature, top_p, top_k)
 
     os.write(1,f"{model}\n".encode())
     os.write(1,f"{temperature}\n".encode())
-    
+
     file_path = f"{working_dir}/{file_name}"
     
     # loading the document
@@ -112,34 +252,27 @@ def local_get_answer_upload_pdf(model, temperature, file_name, query):
     
     return response["result"]
 
-def local_get_answer_url(model, temperature, query):
-    """Process multiple URLs specified here using local deployment.
+def local_get_answer_url(model, temperature, top_p, top_k, query):
+    """Process multiple URLs specified here using local vLLM (OpenAI API).
     
     Args:
         model (str): The model identifier to use
         temperature (float): The model's temperature setting
+        top_p (float): Nucleus sampling threshold
+        top_k (int): Top-k token cutoff for the server
         query (str): The user's question
     
     Returns:
         str: The model's response to the query
     """
 
-    llm = OllamaLLM(
-        model=model,
-        temperature = temperature
-        )
+    llm = _local_vllm_llm(model, temperature, top_p, top_k)
 
     os.write(1,f"{model}\n".encode())
     os.write(1,f"{temperature}\n".encode())
-    
-    # List of URLs to load documents from
-    urls = [
-       "https://en.wikipedia.org/wiki/Arrow_Electronics",
-       "https://www.linkedin.com/company/arrow-electronics/posts/?feedView=all",
-       "https://www.builtincolorado.com/company/arrow-electronics-inc",
-       "https://www.bloomberg.com/profile/company/ARW:US"
-    ]
-    
+
+    urls = _rag_website_urls()
+
     os.write(1,f"{urls}\n".encode())
     
 
@@ -174,31 +307,28 @@ def local_get_answer_url(model, temperature, query):
 
     return response["result"]
 
-def local_get_answer_folder_pdf(model, temperature, query):
-    """Process all PDFs in the docs folder using local deployment.
+def local_get_answer_folder_pdf(model, temperature, top_p, top_k, query):
+    """Process all PDFs in the docs folder using local vLLM (OpenAI API).
     
     Args:
         model (str): The model identifier to use
         temperature (float): The model's temperature setting
+        top_p (float): Nucleus sampling threshold
+        top_k (int): Top-k token cutoff for the server
         query (str): The user's question
     
     Returns:
         str: The model's response to the query
     """
     
-    llm = OllamaLLM(
-        model=model,
-        temperature = temperature
-        )
+    llm = _local_vllm_llm(model, temperature, top_p, top_k)
 
     os.write(1,f"{model}\n".encode())
     os.write(1,f"{temperature}\n".encode())
-    
-    # Define the folder path
-    folder_path = Path(f"{working_dir}/docs")
 
-    # List all PDF files in the folder
-    pdf_files = [file for file in folder_path.glob('*.pdf')]
+    folder_path = docs_folder_path()
+
+    pdf_files = [file for file in folder_path.glob("*.pdf")]
 
     # loading the document
     docs = UnstructuredLoader(pdf_files).load()
@@ -228,143 +358,62 @@ def local_get_answer_folder_pdf(model, temperature, query):
     return response["result"]
 
 
-      
-    llm = OllamaLLM(
-        model=model,
-        temperature = temperature
-        )
-
-    os.write(1,f"{model}\n".encode())
-    os.write(1,f"{temperature}\n".encode())
-
-    # Define the folder path
-    folder_path = Path(f"{working_dir}/excel")
-
-
-    # loading the document
-    excel_files = list(folder_path.glob('*.xlsx'))
-    
-    all_docs = []
-    for file in excel_files:
-        docs = UnstructuredExcelLoader(str(file), mode="elements").load()
-        all_docs.extend(docs)
-    
-    
-    
-    # create text chunks
-    
-    text_splitter = CharacterTextSplitter(separator="/n",
-                                          chunk_size = 1000,
-                                          chunk_overlap = 00)
-    
-    text_chunks = text_splitter.split_documents(docs)
-    
-    
-    # vector embeddings from text chunks 
-    
-    knowledge_base = FAISS.from_documents(text_chunks, embeddings)
-    
-    qa_chain = RetrievalQA.from_chain_type(
-        llm,
-        retriever = knowledge_base.as_retriever()
-        
-    )
-    
-    response = qa_chain.invoke({"query": query})
-    
-    return response["result"]
-
-def nim_get_answer_folder_pdf(model, temperature, query):
+def nim_get_answer_folder_pdf(model, temperature, top_p, top_k, query):
     """Process all PDFs in the docs folder using NVIDIA NIM deployment.
     
     Args:
         model (str): The model identifier to use
         temperature (float): The model's temperature setting
+        top_p (float): Nucleus sampling threshold
+        top_k (int): Top-k token cutoff (passed in model_kwargs when supported)
         query (str): The user's question
     
     Returns:
         str: The model's response to the query
     """
 
-    folder_path = Path(f"{working_dir}/docs")
-    
-    api_key = NVIDIA_API_KEY
-    
-    llm = ChatNVIDIA(
-        model=model,
-        api_key=api_key, 
-        temperature=temperature,
-        top_p=0.7,
-        max_tokens=1024,
-    )
-    
+    folder_path = docs_folder_path()
+    llm = _nim_chat_llm(model, temperature, top_p, top_k)
+
     os.write(1,f"{model}\n".encode())
     os.write(1,f"{temperature}\n".encode())
-    os.write(1,f"{api_key}\n".encode())
-    
-    # List all PDF files in the folder
-    pdf_files = [file for file in folder_path.glob('*.pdf')]
 
-    # loading the document
+    pdf_files = [file for file in folder_path.glob("*.pdf")]
     docs = UnstructuredLoader(pdf_files).load()
-  
-    
-    # create text chunks
-    
-    text_splitter = CharacterTextSplitter(separator="/n",
-                                          chunk_size = 1000,
-                                          chunk_overlap = 200)
-    
+
+    text_splitter = CharacterTextSplitter(
+        separator="/n", chunk_size=1000, chunk_overlap=200
+    )
     text_chunks = text_splitter.split_documents(docs)
-    
-    
-    # vector embeddings from text chunks 
-    
     knowledge_base = FAISS.from_documents(text_chunks, embeddings)
-    
     qa_chain = RetrievalQA.from_chain_type(
         llm,
-        retriever = knowledge_base.as_retriever()
+        retriever=knowledge_base.as_retriever(),
     )
-    
     response = qa_chain.invoke({"query": query})
-    
     return response["result"]
 
-def nim_get_answer_url(model, temperature, query):
+def nim_get_answer_url(model, temperature, top_p, top_k, query):
     """Process multiple URLs specified here using NVIDIA NIM deployment.
     
     Args:
         model (str): The model identifier to use
         temperature (float): The model's temperature setting
+        top_p (float): Nucleus sampling threshold
+        top_k (int): Top-k token cutoff (passed in model_kwargs when supported)
         query (str): The user's question
     
     Returns:
         str: The model's response to the query
     """
     
-    api_key = NVIDIA_API_KEY
-    
-    llm = ChatNVIDIA(
-        model=model,
-        api_key=api_key, 
-        temperature=temperature,
-        top_p=0.7,
-        max_tokens=1024,
-    )
-    
+    llm = _nim_chat_llm(model, temperature, top_p, top_k)
+
     os.write(1,f"{model}\n".encode())
     os.write(1,f"{temperature}\n".encode())
-    os.write(1,f"{api_key}\n".encode())
 
-    # List of URLs to load documents from
-    urls = [
-        "https://en.wikipedia.org/wiki/Arrow_Electronics",
-       "https://www.linkedin.com/company/arrow-electronics/posts/?feedView=all",
-       "https://www.builtincolorado.com/company/arrow-electronics-inc",
-       "https://www.bloomberg.com/profile/company/ARW:US"
-    ]
-    
+    urls = _rag_website_urls()
+
     # Load documents from the URLs
     docs = [WebBaseLoader(url).load() for url in urls]
     docs_list = [item for sublist in docs for item in sublist]
@@ -388,12 +437,16 @@ def nim_get_answer_url(model, temperature, query):
     
     return response["result"]
 
-def nim_get_answer_upload_pdf(model, temperature, file_name, query):
+def nim_get_answer_upload_pdf(
+    model, temperature, top_p, top_k, file_name, query
+):
     """Process a single uploaded PDF file using NVIDIA NIM deployment.
     
     Args:
         model (str): The model identifier to use
         temperature (float): The model's temperature setting
+        top_p (float): Nucleus sampling threshold
+        top_k (int): Top-k token cutoff (passed in model_kwargs when supported)
         file_name (str): Name of the uploaded PDF file
         query (str): The user's question
     
@@ -401,20 +454,11 @@ def nim_get_answer_upload_pdf(model, temperature, file_name, query):
         str: The model's response to the query
     """
     
-    api_key = NVIDIA_API_KEY
-    
-    llm = ChatNVIDIA(
-        model=model,
-        api_key=api_key, 
-        temperature=temperature,
-        top_p=0.7,
-        max_tokens=1024,
-    )
+    llm = _nim_chat_llm(model, temperature, top_p, top_k)
 
     os.write(1,f"{model}\n".encode())
     os.write(1,f"{temperature}\n".encode())
-    os.write(1,f"{api_key}\n".encode())
-    
+
     file_path = f"{working_dir}/{file_name}"
     
     # loading the document

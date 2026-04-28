@@ -5,6 +5,7 @@ backgroundColor="#0e1117"
 secondaryBackgroundColor="#001f3f"
 
 [server]
+address = "0.0.0.0"
 port=8501 # change port number. By default streamlit uses 8501 port
 headless=true # This will eliminate automatically open browser
 browser.gatherUsageStats=false # Turns off browser usage stats gathering

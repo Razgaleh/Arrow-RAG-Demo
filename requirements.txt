@@ -1,10 +1,14 @@
 streamlit
 st-theme
-langchain-ollama
+langchain-classic
+langchain-text-splitters
+langchain-openai
 langchain-community
 langchain-huggingface
+sentence-transformers
 langchain-nvidia-ai-endpoints
 langchain-unstructured
 unstructured
 unstructured[pdf]
 faiss-gpu
+

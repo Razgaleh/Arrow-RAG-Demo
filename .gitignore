@@ -129,10 +129,6 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-<<<<<<< HEAD
-=======
-.venv/
->>>>>>> master
 
 # Spyder project settings
 .spyderproject

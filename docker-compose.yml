@@ -1,0 +1,14 @@
+services:
+  app:
+    image: arrow-rag-demo:local
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

@@ -1,49 +1,81 @@
-/* Custom Font */
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@100..800&display=swap');
-body * {
-    font-family: 'Montserrat', sans-serif !important;
-} 
+/* No custom webfonts — Montserrat/Source Sans overrides broke Streamlit’s icon fonts
+   (sidebar collapse, file uploader). Typography = Streamlit theme defaults. */
 
-[class^=st-emotion] {
-    font-family: 'Montserrat', sans-serif !important;
-} 
+/* Spacing only: label vs dropzone (does not touch fonts) */
+[data-testid="stFileUploader"] > label {
+    display: block;
+    margin-bottom: 0.35rem;
+}
 
-
+[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] {
+    margin-top: 0.15rem;
+}
 
 /* Arrow Main Logo */
-.st-emotion-cache-19u4bdk img{
+.st-emotion-cache-19u4bdk img {
     width: 150px;
     height: auto;
     transform: translate(25px, -25px);
-}  
+}
 
 /* Arrow Sidebar Logo */
-.st-emotion-cache-6qob1r img{
+.st-emotion-cache-6qob1r img {
     width: 400px;
     height: auto;
     transform: translate(15px, 0px);
     margin-bottom: 0px;
     padding-bottom: 0px;
 }
-     
+
 /* Sidebar */
-div[class='css-4z1n4l ehezqtx5']{
+div[class='css-4z1n4l ehezqtx5'] {
     background: rgba(0, 0, 0, 0.3);
     color: #fff;
     border-radius: 15px;
     height: 40px;
     max-width: 160px;
-
-
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     width: 50%;
-  }
+}
 
-  div[class='st-emotion-cache-1sno8jx e1nzilvr4'] {
+div[class='st-emotion-cache-1sno8jx e1nzilvr4'] {
     color: #000000;
-  }
+}
 
+/* Dark panel behind main content so chat text stays readable on the photo background */
+section.main .block-container {
+    background: rgba(13, 17, 23, 0.94);
+    border-radius: 12px;
+    padding: 1rem 1.25rem 1.75rem;
+    margin-top: 0.35rem;
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
 
+section.main .block-container .stMarkdown p,
+section.main .block-container .stMarkdown li,
+section.main .block-container h1,
+section.main .block-container h2,
+section.main .block-container h3 {
+    color: #e6edf3 !important;
+}
+
+[data-testid="stChatMessage"] {
+    background: rgba(0, 0, 0, 0.62) !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+[data-testid="stChatMessage"] p,
+[data-testid="stChatMessage"] li,
+[data-testid="stChatMessage"] .stMarkdown {
+    color: #e6edf3 !important;
+}
+
+[data-testid="stChatInput"] textarea {
+    color: #e6edf3 !important;
+    background-color: rgba(0, 0, 0, 0.35) !important;
+}
